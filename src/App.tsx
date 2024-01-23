@@ -1,39 +1,84 @@
-import { useState, useEffect } from "react";
 import "./App.css";
-
-const url = "https://pokeapi.co/api/v2/pokemon?limit=100000&offset=0";
+import {
+  useQuery,
+  QueryClientProvider,
+  QueryClient,
+} from "@tanstack/react-query";
+import {
+  createBrowserRouter,
+  createRoutesFromElements,
+  Route,
+  RouterProvider,
+  useSearchParams,
+} from "react-router-dom";
 
 interface IData {
   results: { name: string }[];
 }
 
-async function request() {
-  const response = await fetch(url, {
-    method: "GET",
-  });
+async function request(pageNumber: number) {
+  const response = await fetch(
+    `https://pokeapi.co/api/v2/pokemon?limit=5&offset=${pageNumber}`,
+    {
+      method: "GET",
+    }
+  );
   const data: IData = await response.json();
 
   return data;
 }
 
-function App() {
-  const [data, setData] = useState<IData>();
+const DataLoader = () => {
+  const [params, setParams] = useSearchParams();
+  const pageNumber = Number(params.get("pageNumber")) || 0;
 
-  useEffect(() => {
-    request().then((result) => {
-      setData(result);
-    });
-  }, []);
+  const { data, isLoading } = useQuery({
+    queryKey: ["pokemon", pageNumber],
+    queryFn: () => request(pageNumber),
+  });
 
-  console.log("data:", data);
+  if (isLoading) {
+    return "로딩중";
+  }
 
   return (
-    <ul>
-      {data?.results?.map((e, i) => (
-        <li key={i}>{e.name}</li>
-      ))}
-    </ul>
+    <>
+      <ul>
+        {data?.results?.map((e, i) => (
+          <li key={i}>{e.name}</li>
+        ))}
+      </ul>
+      <button
+        type="button"
+        onClick={() => setParams({ pageNumber: `${pageNumber + 1}` })}
+      >
+        +
+      </button>
+      <span>{pageNumber}</span>
+      <button
+        type="button"
+        onClick={() => setParams({ pageNumber: `${pageNumber - 1}` })}
+      >
+        -
+      </button>
+    </>
   );
+};
+
+function App() {
+  const router = createBrowserRouter(
+    createRoutesFromElements(
+      <Route
+        path="/"
+        element={
+          <QueryClientProvider client={new QueryClient()}>
+            <DataLoader />
+          </QueryClientProvider>
+        }
+      />
+    )
+  );
+  return <RouterProvider router={router} />;
 }
 
 export default App;
